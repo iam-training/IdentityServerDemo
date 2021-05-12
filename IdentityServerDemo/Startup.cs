@@ -26,6 +26,30 @@ namespace IdentityServerDemo
                 }
             };
         }
+
+        public static IEnumerable<ApiResource> GetApiResources()
+        {
+            return new List<ApiResource>
+            {
+                new ApiResource
+                {
+                    Name = "api1",
+                    DisplayName = "API 1",
+                    Description = "API 1 Read access",
+                    Scopes = { "api1.read" },
+                    ApiSecrets = { new Secret("secret".Sha256()) }
+                }
+            };
+        }
+
+        public static IEnumerable<ApiScope> GetApiScopes()
+        {
+            return new List<ApiScope>
+            {
+                new ApiScope("api1.read", "Read API1")
+            };
+        }
+
     }
 
     public class Startup
@@ -42,16 +66,16 @@ namespace IdentityServerDemo
         {
             var builder = services.AddIdentityServer()
                 .AddInMemoryClients(Config.GetClients())
-                .AddInMemoryIdentityResources()
-                .AddInMemoryApiResources()
-                .AddInMemoryApiScopes()
-                .AddTestUsers();
+                //.AddInMemoryIdentityResources()
+                .AddInMemoryApiResources(Config.GetApiResources())
+                .AddInMemoryApiScopes(Config.GetApiScopes());
+                //.AddTestUsers();
 
             // Signing Key
             builder.AddDeveloperSigningCredential();
 
+            // Authorization & Authentication
             services.AddAuthorization();
-
             services.AddAuthentication();
 
             services.AddControllersWithViews();
@@ -76,7 +100,9 @@ namespace IdentityServerDemo
 
             app.UseRouting();
 
+            app.UseIdentityServer();
             app.UseAuthorization();
+            app.UseAuthentication();
 
             app.UseEndpoints(endpoints =>
             {
