@@ -1,78 +1,50 @@
-using IdentityServer4.Models;
+using IdentityServer.Helpers;
+using IdentityServer4.Services;
+using IdentityServerDemo.Helpers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Collections.Generic;
+using System;
 
 namespace IdentityServerDemo
 {
-    internal static class Config
-    {
-        public static IEnumerable<Client> GetClients()
-        {
-            return new List<Client>
-            {
-                // Client Credentials Flow
-                new Client
-                {
-                    ClientId = "oauthClient",
-                    ClientName = "Client Credentials Flow Client",
-                    AllowedGrantTypes = GrantTypes.ClientCredentials,
-                    ClientSecrets = { new Secret("secret".Sha256()) },
-                    AllowedScopes = { "api1.read" },
-                    Enabled = true
-                }
-            };
-        }
-
-        public static IEnumerable<ApiResource> GetApiResources()
-        {
-            return new List<ApiResource>
-            {
-                new ApiResource
-                {
-                    Name = "api1",
-                    DisplayName = "API 1",
-                    Description = "API 1 Read access",
-                    Scopes = { "api1.read" },
-                    ApiSecrets = { new Secret("secret".Sha256()) }
-                }
-            };
-        }
-
-        public static IEnumerable<ApiScope> GetApiScopes()
-        {
-            return new List<ApiScope>
-            {
-                new ApiScope("api1.read", "Read API1")
-            };
-        }
-
-    }
-
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        private readonly MyConfiguration _myConfiguration;
+
+        private IConfiguration Configuration { get; }
+        private IWebHostEnvironment Environment { get; }
+
+        public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Configuration = configuration;
+            Environment = environment;
+
+            _myConfiguration = Configuration.GetSection("MyConfiguration").Get<MyConfiguration>();
         }
 
-        public IConfiguration Configuration { get; }
-
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            var builder = services.AddIdentityServer()
-                .AddInMemoryClients(Config.GetClients())
-                //.AddInMemoryIdentityResources()
-                .AddInMemoryApiResources(Config.GetApiResources())
-                .AddInMemoryApiScopes(Config.GetApiScopes());
-                //.AddTestUsers();
+            // Services
+            // ITokenService for debugging tokens
+            services.AddTransient<ITokenService, MyTokenService>();
+
+            // IProfileService for adding/removing claims from a token
+            services.AddTransient<IProfileService, MyProfileService>();
+
+            IIdentityServerBuilder builder = AddMyIdentityServer(services);
 
             // Signing Key
-            builder.AddDeveloperSigningCredential();
+            if (Environment.IsDevelopment())
+            {
+                builder.AddDeveloperSigningCredential();
+            }
+            else
+            {
+                throw new Exception("Configure Signing Key");
+            }
 
             // Authorization & Authentication
             services.AddAuthorization();
@@ -81,10 +53,9 @@ namespace IdentityServerDemo
             services.AddControllersWithViews();
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app)
         {
-            if (env.IsDevelopment())
+            if (Environment.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
             }
@@ -108,6 +79,18 @@ namespace IdentityServerDemo
             {
                 endpoints.MapDefaultControllerRoute();
             });
+        }
+        
+        private static IIdentityServerBuilder AddMyIdentityServer(IServiceCollection services)
+        {
+            var builder = services.AddIdentityServer()
+                            .AddInMemoryClients(Config.GetClients())
+                            //.AddInMemoryIdentityResources()
+                            .AddInMemoryApiResources(Config.GetApiResources())
+                            .AddInMemoryApiScopes(Config.GetApiScopes())
+                            //.AddTestUsers()
+                            .AddProfileService<MyProfileService>();
+            return builder;
         }
     }
 }

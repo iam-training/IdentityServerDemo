@@ -8,6 +8,8 @@ using WebApi.Models;
 
 namespace WebApi.Controllers
 {
+    //[Authorize(Policy = "adminOnlyPolicy")]
+    //[Authorize(Roles = "admin")]
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
